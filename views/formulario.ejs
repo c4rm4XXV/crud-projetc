@@ -64,11 +64,36 @@
         .link a:hover {
             text-decoration: underline;
         }
+        .alerta-erro {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border: 1px solid #f5c6cb;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Cadastro de Usuário</h1>
+
+        <% if (typeof erro !== 'undefined' && erro) { %>
+            <div class="alerta-erro" id="msg-erro">
+                <strong>Erro!</strong> Não foi possível realizar o cadastro. O e-mail já pode estar em uso.
+            </div>
+            <script>
+                // Limpa a URL
+                window.history.replaceState(null, null, window.location.pathname);
+                
+                // Oculta após 4 segundos
+                setTimeout(() => {
+                    const erroBox = document.getElementById('msg-erro');
+                    if (erroBox) erroBox.style.display = 'none';
+                }, 4000);
+            </script>
+        <% } %>
         
         <form action="/cadastro" method="post">
             <div class="form-group">

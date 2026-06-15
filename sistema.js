@@ -47,34 +47,50 @@ connection.query(createTableSQL, (err) => {
 
 // ROTA GET / - Tela de cadastro
 app.get('/', (req, res) => {
-    res.render('formulario');
+
+    const mostrarErro = req.query.erro === 'true';
+
+    res.render('formulario', {
+        erro: mostrarErro
+    });
+
 });
 
 // ROTA POST /cadastro
 app.post('/cadastro', (req, res) => {
     const { email, senha } = req.body;
     
-    // CORRIGIDO: tabela 'usuarios' (plural)
     const query = 'INSERT INTO usuarios (email, senha) VALUES (?, ?)';
     connection.query(query, [email, senha], (err, result) => {
         if (err) {
             console.error('Erro:', err);
-            return res.send('Erro ao cadastrar');
+            // REDIRECIONA DE VOLTA PRO FORMULÁRIO COM A TAG DE ERRO
+            return res.redirect('/?erro=true');
         }
-        res.send(`Usuário cadastrado! ID: ${result.insertId}`);
+        //res.send(`Usuário cadastrado! ID: ${result.insertId}`);
+        // // REDIRECIONA PRO RELATÓRIO COM A TAG DE SUCESSO
+        res.redirect('/consulta?sucesso=true')
     });
 });
 
 // ROTA GET /consulta - CORRIGIDO
 app.get('/consulta', (req, res) => {
-    // CORRIGIDO: tabela 'usuarios'
+
     const query = 'SELECT * FROM usuarios';
     connection.query(query, (err, results) => {
         if (err) {
             console.error('Erro:', err);
             return res.send('Erro ao consultar');
         }
-        res.render('relatorio', { usuarios: results });
+
+        //CAPTURA O PARÂMETRO DA URL PARA ATIVAR O ALERTA NO EJS
+        const mostrarAlerta = req.query.sucesso === 'true';
+        
+        res.render('relatorio',{
+            usuarios: results,
+            alerta: mostrarAlerta
+        });
+        //res.render('relatorio', { usuarios: results });
     });
 });
 
@@ -82,7 +98,7 @@ app.get('/consulta', (req, res) => {
 app.post('/alterar', (req, res) => {
     const { alterar } = req.body;
     
-    // CORRIGIDO: tabela 'usuarios'
+
     const query = 'SELECT * FROM usuarios WHERE id = ?';
     connection.query(query, [alterar], (err, results) => {
         if (err) return res.send('Erro');
@@ -94,7 +110,7 @@ app.post('/alterar', (req, res) => {
 app.post('/cadastro/alterar', (req, res) => {
     const { id, email, senha } = req.body;
     
-    // CORRIGIDO: tabela 'usuarios'
+
     const query = 'UPDATE usuarios SET email = ?, senha = ? WHERE id = ?';
     connection.query(query, [email, senha, id], (err) => {
         if (err) return res.send('Erro ao atualizar');
@@ -110,7 +126,6 @@ app.post('/cadastro/alterar', (req, res) => {
 app.post('/excluir', (req, res) => {
     const { excluir } = req.body;
     
-    // CORRIGIDO: tabela 'usuarios'
     const query = 'DELETE FROM usuarios WHERE id = ?';
     connection.query(query, [excluir], (err) => {
         if (err) return res.send('Erro ao excluir');
