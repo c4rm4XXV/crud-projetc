@@ -1,5 +1,6 @@
 const express = require('express');
 const bodyParser = require('body-parser');
+require('dotenv').config(); // Carregar variáveis de ambiente
 const mysql = require('mysql2');
 
 const app = express();
@@ -13,127 +14,109 @@ app.set('views', './views');
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-// Configuração da conexão com MySQL
-const connection = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',        // Ajuste conforme sua configuração
-    password: 'Deltina04@@',        // Ajuste conforme sua configuração
-    database: 'teste'
-});
+// Configuração da conexão com MySQL (Aiven)
+const connection = mysql.createConnection(process.env.DATABASE_URL);
+
 
 // Conexão com o banco de dados
 connection.connect((err) => {
     if (err) {
-        console.error('Erro ao conectar ao MySQL:', err);
+        console.error('❌Erro ao conectar ao MySQL:', err);
         return;
     }
-    console.log('Conectado ao MySQL com sucesso!');
+    console.log('✅Conectado ao MySQL com sucesso!');
 });
 
-// ROTA GET / - Tela de cadastro inicial
+// Criar tabela se não existir - ADICIONAR ESTA PARTE
+const createTableSQL = `
+    CREATE TABLE IF NOT EXISTS usuarios (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        senha VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`;
+
+connection.query(createTableSQL, (err) => {
+    if (err) {
+        console.error('❌ Erro ao criar tabela:', err);
+    } else {
+        console.log('✅ Tabela "usuarios" verificada/criada');
+    }
+});
+
+// ROTA GET / - Tela de cadastro
 app.get('/', (req, res) => {
     res.render('formulario');
 });
 
-// ROTA POST /cadastro - Inserir novo usuário
+// ROTA POST /cadastro
 app.post('/cadastro', (req, res) => {
     const { email, senha } = req.body;
     
-    //linha de log para debug
-    console.log('Tentando cadastrar:', { email, senha });
-    
-    const query = 'INSERT INTO usuario (email, senha) VALUES (?, ?)';
+    // CORRIGIDO: tabela 'usuarios' (plural)
+    const query = 'INSERT INTO usuarios (email, senha) VALUES (?, ?)';
     connection.query(query, [email, senha], (err, result) => {
         if (err) {
-            console.error('Erro ao inserir usuário:', err);
-            res.send('Erro ao cadastrar usuário');
-            return;
+            console.error('Erro:', err);
+            return res.send('Erro ao cadastrar');
         }
-
-        //linha de log para debug
-        console.log('Usuário inserido com ID:', result.insertId); 
-
-        res.send(`Usuário cadastrado com sucesso! ID: ${result.insertId}`);
+        res.send(`Usuário cadastrado! ID: ${result.insertId}`);
     });
 });
 
-// ROTA GET /consulta - Listar todos os usuários
+// ROTA GET /consulta - CORRIGIDO
 app.get('/consulta', (req, res) => {
-    const query = 'SELECT * FROM usuario';
+    // CORRIGIDO: tabela 'usuarios'
+    const query = 'SELECT * FROM usuarios';
     connection.query(query, (err, results) => {
         if (err) {
-            console.error('Erro ao consultar usuários:', err);
-            res.send('Erro ao consultar usuários');
-            return;
+            console.error('Erro:', err);
+            return res.send('Erro ao consultar');
         }
         res.render('relatorio', { usuarios: results });
     });
 });
 
-// ROTA POST /alterar - Buscar usuário para edição
+// ROTA POST /alterar - CORRIGIDO
 app.post('/alterar', (req, res) => {
     const { alterar } = req.body;
     
-    const query = 'SELECT * FROM usuario WHERE id = ?';
+    // CORRIGIDO: tabela 'usuarios'
+    const query = 'SELECT * FROM usuarios WHERE id = ?';
     connection.query(query, [alterar], (err, results) => {
-        if (err) {
-            console.error('Erro ao buscar usuário:', err);
-            res.send('Erro ao buscar usuário');
-            return;
-        }
-        if (results.length > 0) {
-            res.render('alterar', { usuario: results[0] });
-        } else {
-            res.send('Usuário não encontrado');
-        }
+        if (err) return res.send('Erro');
+        res.render('alterar', { usuarios: results[0] });
     });
 });
 
-// ROTA POST /cadastro/alterar - Processar edição (SEM redirect)
+// ROTA POST /cadastro/alterar - CORRIGIDO
 app.post('/cadastro/alterar', (req, res) => {
     const { id, email, senha } = req.body;
     
-    const query = 'UPDATE usuario SET email = ?, senha = ? WHERE id = ?';
-    connection.query(query, [email, senha, id], (err, result) => {
-        if (err) {
-            console.error('Erro ao atualizar usuário:', err);
-            res.send('Erro ao atualizar usuário');
-            return;
-        }
+    // CORRIGIDO: tabela 'usuarios'
+    const query = 'UPDATE usuarios SET email = ?, senha = ? WHERE id = ?';
+    connection.query(query, [email, senha, id], (err) => {
+        if (err) return res.send('Erro ao atualizar');
         
-        // Após UPDATE, faz SELECT e renderiza relatorio
-        const selectQuery = 'SELECT * FROM usuario';
-        connection.query(selectQuery, (err, results) => {
-            if (err) {
-                console.error('Erro ao consultar usuários:', err);
-                res.send('Erro ao consultar usuários');
-                return;
-            }
+        // Recarrega a lista
+        connection.query('SELECT * FROM usuarios', (err, results) => {
             res.render('relatorio', { usuarios: results });
         });
     });
 });
 
-// ROTA POST /excluir - Deletar usuário (SEM redirect)
+// ROTA POST /excluir - CORRIGIDO
 app.post('/excluir', (req, res) => {
     const { excluir } = req.body;
     
-    const query = 'DELETE FROM usuario WHERE id = ?';
-    connection.query(query, [excluir], (err, result) => {
-        if (err) {
-            console.error('Erro ao excluir usuário:', err);
-            res.send('Erro ao excluir usuário');
-            return;
-        }
+    // CORRIGIDO: tabela 'usuarios'
+    const query = 'DELETE FROM usuarios WHERE id = ?';
+    connection.query(query, [excluir], (err) => {
+        if (err) return res.send('Erro ao excluir');
         
-        // Após DELETE, faz SELECT e renderiza relatorio
-        const selectQuery = 'SELECT * FROM usuario';
-        connection.query(selectQuery, (err, results) => {
-            if (err) {
-                console.error('Erro ao consultar usuários:', err);
-                res.send('Erro ao consultar usuários');
-                return;
-            }
+        // Recarrega a lista
+        connection.query('SELECT * FROM usuarios', (err, results) => {
             res.render('relatorio', { usuarios: results });
         });
     });
